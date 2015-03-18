@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<database name="default" defaultIdMethod="native" defaultPhpNamingMethod="underscore">
+  <table name="author" idMethod="native" phpName="Author">
+    <column name="id" phpName="Id" type="INTEGER" size="10" sqlType="int(10) unsigned" primaryKey="true" autoIncrement="true" required="true"/>
+    <column name="firstname" phpName="Firstname" type="VARCHAR" size="255" required="true"/>
+    <column name="lastname" phpName="Lastname" type="VARCHAR" size="255" required="true"/>
+    <column name="email" phpName="Email" type="VARCHAR" size="255" required="true"/>
+    <column name="birtdate" phpName="Birtdate" type="DATE" required="true"/>
+    <column name="newsletter" phpName="Newsletter" type="BOOLEAN" size="1" sqlType="tinyint(1) unsigned" required="true"/>
+    <vendor type="mysql">
+      <parameter name="Engine" value="InnoDB"/>
+    </vendor>
+  </table>
+  <table name="book" idMethod="native" phpName="Book">
+    <column name="id" phpName="Id" type="INTEGER" primaryKey="true" autoIncrement="true" required="true"/>
+    <column name="title" phpName="Title" type="VARCHAR" size="255" required="true"/>
+    <column name="isbn" phpName="Isbn" type="VARCHAR" size="24" required="true"/>
+    <column name="publisher_id" phpName="PublisherId" type="INTEGER" required="true"/>
+    <column name="author_id" phpName="AuthorId" type="INTEGER" required="true"/>
+    <vendor type="mysql">
+      <parameter name="Engine" value="InnoDB"/>
+    </vendor>
+  </table>
+  <table name="group" idMethod="native" phpName="Group">
+    <column name="id" phpName="Id" type="INTEGER" size="10" sqlType="int(10) unsigned" primaryKey="true" autoIncrement="true" required="true"/>
+    <column name="name" phpName="Name" type="VARCHAR" size="255" required="true"/>
+    <vendor type="mysql">
+      <parameter name="Engine" value="InnoDB"/>
+    </vendor>
+  </table>
+  <table name="movie" idMethod="native" phpName="Movie">
+    <column name="id" phpName="Id" type="INTEGER" primaryKey="true" autoIncrement="true" required="true"/>
+    <column name="title" phpName="Title" type="VARCHAR" size="255" required="true"/>
+    <vendor type="mysql">
+      <parameter name="Engine" value="InnoDB"/>
+    </vendor>
+  </table>
+  <table name="publisher" idMethod="native" phpName="Publisher">
+    <column name="id" phpName="Id" type="INTEGER" primaryKey="true" autoIncrement="true" required="true"/>
+    <column name="name" phpName="Name" type="VARCHAR" size="128" required="true"/>
+    <vendor type="mysql">
+      <parameter name="Engine" value="InnoDB"/>
+    </vendor>
+  </table>
+  <table name="user" idMethod="native" phpName="User">
+    <column name="id" phpName="Id" type="INTEGER" size="10" sqlType="int(10) unsigned" primaryKey="true" autoIncrement="true" required="true"/>
+    <column name="name" phpName="Name" type="VARCHAR" size="255" required="true"/>
+    <vendor type="mysql">
+      <parameter name="Engine" value="InnoDB"/>
+    </vendor>
+  </table>
+  <table name="user_group" idMethod="native" phpName="UserGroup">
+    <column name="user_id" phpName="UserId" type="INTEGER" primaryKey="true" required="true"/>
+    <column name="group_id" phpName="GroupId" type="INTEGER" primaryKey="true" required="true"/>
+    <vendor type="mysql">
+      <parameter name="Engine" value="InnoDB"/>
+    </vendor>
+  </table>
+</database>

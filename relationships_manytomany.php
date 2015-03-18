@@ -1,17 +1,26 @@
 <?php
 require 'setup.php';
 
-$author = new Author();
-$movie = new Movie();
-
-/*
 $user = new User();
 $user->setName('david');
 
-$group = new Group();
-$group->setName('anonymous');
-
-$user->addGroup($group);
+$group = new Grp();
+$group->setName('Anonymous');
+$user->addGrp($group);
 
 $user->save();
-*/
+
+
+$users = $group->getUsers();
+echo $group->countUsers();
+
+
+$user = UserQuery::create()->findPK(21);
+$user->addGrp($group);
+$user->addGrp($group);
+$user->addGrp($group);
+$user->save();
+
+echo $user->countGrps();
+
+var_dump($user->getGrps());

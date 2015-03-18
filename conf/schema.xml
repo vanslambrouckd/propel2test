@@ -40,4 +40,25 @@
       <parameter name="Engine" value="InnoDB"/>
     </vendor>
   </table>
+
+  <table name="user">
+  <column name="id" type="integer" primaryKey="true" autoIncrement="true"/>
+  <column name="name" type="varchar" size="32"/>
+</table>
+
+<table name="grp">
+  <column name="id" type="integer" primaryKey="true" autoIncrement="true"/>
+  <column name="name" type="varchar" size="32"/>
+</table>
+
+<table name="user_grp" isCrossRef="true">
+  <column name="user_id" type="integer" primaryKey="true"/>
+  <column name="grp_id" type="integer" primaryKey="true"/>
+  <foreign-key foreignTable="user">
+    <reference local="user_id" foreign="id"/>
+  </foreign-key>
+  <foreign-key foreignTable="grp">
+    <reference local="grp_id" foreign="id"/>
+  </foreign-key>
+</table>
 </database>
