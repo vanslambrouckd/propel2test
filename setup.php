@@ -7,7 +7,7 @@ $whoops = new \Whoops\Run;
 $whoops->pushHandler(new \Whoops\Handler\PrettyPageHandler);
 $whoops->register();
 
-require_once '/generated-conf/config.php';
+require_once '/conf/generated-conf/config.php';
 
 $defaultLogger = new Logger('defaultLogger');
 $defaultLogger->pushHandler(new StreamHandler('./log/propel.log', Logger::WARNING));
