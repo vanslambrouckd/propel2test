@@ -10,6 +10,7 @@ use Map\AuthorTableMap;
 use Propel\Runtime\Propel;
 use Propel\Runtime\ActiveQuery\Criteria;
 use Propel\Runtime\ActiveQuery\ModelCriteria;
+use Propel\Runtime\ActiveQuery\ModelJoin;
 use Propel\Runtime\Collection\ObjectCollection;
 use Propel\Runtime\Connection\ConnectionInterface;
 use Propel\Runtime\Exception\PropelException;
@@ -34,6 +35,12 @@ use Propel\Runtime\Exception\PropelException;
  * @method     ChildAuthorQuery leftJoin($relation) Adds a LEFT JOIN clause to the query
  * @method     ChildAuthorQuery rightJoin($relation) Adds a RIGHT JOIN clause to the query
  * @method     ChildAuthorQuery innerJoin($relation) Adds a INNER JOIN clause to the query
+ *
+ * @method     ChildAuthorQuery leftJoinBook($relationAlias = null) Adds a LEFT JOIN clause to the query using the Book relation
+ * @method     ChildAuthorQuery rightJoinBook($relationAlias = null) Adds a RIGHT JOIN clause to the query using the Book relation
+ * @method     ChildAuthorQuery innerJoinBook($relationAlias = null) Adds a INNER JOIN clause to the query using the Book relation
+ *
+ * @method     \BookQuery endUse() Finalizes a secondary criteria and merges it with its primary Criteria
  *
  * @method     ChildAuthor findOne(ConnectionInterface $con = null) Return the first ChildAuthor matching the query
  * @method     ChildAuthor findOneOrCreate(ConnectionInterface $con = null) Return the first ChildAuthor matching the query, or a new ChildAuthor object populated from the query conditions when no match is found
@@ -410,6 +417,79 @@ abstract class AuthorQuery extends ModelCriteria
         }
 
         return $this->addUsingAlias(AuthorTableMap::COL_BIRTDATE, $birtdate, $comparison);
+    }
+
+    /**
+     * Filter the query by a related \Book object
+     *
+     * @param \Book|ObjectCollection $book the related object to use as filter
+     * @param string $comparison Operator to use for the column comparison, defaults to Criteria::EQUAL
+     *
+     * @return ChildAuthorQuery The current query, for fluid interface
+     */
+    public function filterByBook($book, $comparison = null)
+    {
+        if ($book instanceof \Book) {
+            return $this
+                ->addUsingAlias(AuthorTableMap::COL_ID, $book->getAuthorId(), $comparison);
+        } elseif ($book instanceof ObjectCollection) {
+            return $this
+                ->useBookQuery()
+                ->filterByPrimaryKeys($book->getPrimaryKeys())
+                ->endUse();
+        } else {
+            throw new PropelException('filterByBook() only accepts arguments of type \Book or Collection');
+        }
+    }
+
+    /**
+     * Adds a JOIN clause to the query using the Book relation
+     *
+     * @param     string $relationAlias optional alias for the relation
+     * @param     string $joinType Accepted values are null, 'left join', 'right join', 'inner join'
+     *
+     * @return $this|ChildAuthorQuery The current query, for fluid interface
+     */
+    public function joinBook($relationAlias = null, $joinType = Criteria::INNER_JOIN)
+    {
+        $tableMap = $this->getTableMap();
+        $relationMap = $tableMap->getRelation('Book');
+
+        // create a ModelJoin object for this join
+        $join = new ModelJoin();
+        $join->setJoinType($joinType);
+        $join->setRelationMap($relationMap, $this->useAliasInSQL ? $this->getModelAlias() : null, $relationAlias);
+        if ($previousJoin = $this->getPreviousJoin()) {
+            $join->setPreviousJoin($previousJoin);
+        }
+
+        // add the ModelJoin to the current object
+        if ($relationAlias) {
+            $this->addAlias($relationAlias, $relationMap->getRightTable()->getName());
+            $this->addJoinObject($join, $relationAlias);
+        } else {
+            $this->addJoinObject($join, 'Book');
+        }
+
+        return $this;
+    }
+
+    /**
+     * Use the Book relation Book object
+     *
+     * @see useQuery()
+     *
+     * @param     string $relationAlias optional alias for the relation,
+     *                                   to be used as main alias in the secondary query
+     * @param     string $joinType Accepted values are null, 'left join', 'right join', 'inner join'
+     *
+     * @return \BookQuery A secondary query class using the current class as primary query
+     */
+    public function useBookQuery($relationAlias = null, $joinType = Criteria::INNER_JOIN)
+    {
+        return $this
+            ->joinBook($relationAlias, $joinType)
+            ->useQuery($relationAlias ? $relationAlias : 'Book', '\BookQuery');
     }
 
     /**

@@ -140,6 +140,13 @@ class PublisherTableMap extends TableMap
      */
     public function buildRelations()
     {
+        $this->addRelation('Book', '\\Book', RelationMap::ONE_TO_MANY, array (
+  0 =>
+  array (
+    0 => ':publisher_id',
+    1 => ':id',
+  ),
+), null, null, 'Books', false);
     } // buildRelations()
 
     /**

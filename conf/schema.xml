@@ -19,6 +19,12 @@
     <vendor type="mysql">
       <parameter name="Engine" value="InnoDB"/>
     </vendor>
+     <foreign-key foreignTable="publisher" phpName="Publisher" refPhpName="Book">
+      <reference local="publisher_id" foreign="id"/>
+    </foreign-key>
+    <foreign-key foreignTable="author">
+      <reference local="author_id" foreign="id"/>
+    </foreign-key>
   </table>
   <table name="publisher" idMethod="native" phpName="Publisher">
     <column name="id" phpName="Id" type="INTEGER" primaryKey="true" required="true"/>

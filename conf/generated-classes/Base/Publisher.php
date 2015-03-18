@@ -2,6 +2,9 @@
 
 namespace Base;
 
+use \Book as ChildBook;
+use \BookQuery as ChildBookQuery;
+use \Publisher as ChildPublisher;
 use \PublisherQuery as ChildPublisherQuery;
 use \Exception;
 use \PDO;
@@ -11,6 +14,7 @@ use Propel\Runtime\ActiveQuery\Criteria;
 use Propel\Runtime\ActiveQuery\ModelCriteria;
 use Propel\Runtime\ActiveRecord\ActiveRecordInterface;
 use Propel\Runtime\Collection\Collection;
+use Propel\Runtime\Collection\ObjectCollection;
 use Propel\Runtime\Connection\ConnectionInterface;
 use Propel\Runtime\Exception\BadMethodCallException;
 use Propel\Runtime\Exception\LogicException;
@@ -72,12 +76,24 @@ abstract class Publisher implements ActiveRecordInterface
     protected $name;
 
     /**
+     * @var        ObjectCollection|ChildBook[] Collection to store aggregation of ChildBook objects.
+     */
+    protected $collBooks;
+    protected $collBooksPartial;
+
+    /**
      * Flag to prevent endless save loop, if this object is referenced
      * by another object which falls in this transaction.
      *
      * @var boolean
      */
     protected $alreadyInSave = false;
+
+    /**
+     * An array of objects scheduled for deletion.
+     * @var ObjectCollection|ChildBook[]
+     */
+    protected $booksScheduledForDeletion = null;
 
     /**
      * Initializes internal state of Base\Publisher object.
@@ -466,6 +482,8 @@ abstract class Publisher implements ActiveRecordInterface
 
         if ($deep) {  // also de-associate any related objects?
 
+            $this->collBooks = null;
+
         } // if (deep)
     }
 
@@ -574,6 +592,23 @@ abstract class Publisher implements ActiveRecordInterface
                     $affectedRows += $this->doUpdate($con);
                 }
                 $this->resetModified();
+            }
+
+            if ($this->booksScheduledForDeletion !== null) {
+                if (!$this->booksScheduledForDeletion->isEmpty()) {
+                    \BookQuery::create()
+                        ->filterByPrimaryKeys($this->booksScheduledForDeletion->getPrimaryKeys(false))
+                        ->delete($con);
+                    $this->booksScheduledForDeletion = null;
+                }
+            }
+
+            if ($this->collBooks !== null) {
+                foreach ($this->collBooks as $referrerFK) {
+                    if (!$referrerFK->isDeleted() && ($referrerFK->isNew() || $referrerFK->isModified())) {
+                        $affectedRows += $referrerFK->save($con);
+                    }
+                }
             }
 
             $this->alreadyInSave = false;
@@ -699,10 +734,11 @@ abstract class Publisher implements ActiveRecordInterface
      *                    Defaults to TableMap::TYPE_PHPNAME.
      * @param     boolean $includeLazyLoadColumns (optional) Whether to include lazy loaded columns. Defaults to TRUE.
      * @param     array $alreadyDumpedObjects List of objects to skip to avoid recursion
+     * @param     boolean $includeForeignObjects (optional) Whether to include hydrated related objects. Default to FALSE.
      *
      * @return array an associative array containing the field names (as keys) and field values
      */
-    public function toArray($keyType = TableMap::TYPE_PHPNAME, $includeLazyLoadColumns = true, $alreadyDumpedObjects = array())
+    public function toArray($keyType = TableMap::TYPE_PHPNAME, $includeLazyLoadColumns = true, $alreadyDumpedObjects = array(), $includeForeignObjects = false)
     {
 
         if (isset($alreadyDumpedObjects['Publisher'][$this->hashCode()])) {
@@ -719,6 +755,23 @@ abstract class Publisher implements ActiveRecordInterface
             $result[$key] = $virtualColumn;
         }
         
+        if ($includeForeignObjects) {
+            if (null !== $this->collBooks) {
+                
+                switch ($keyType) {
+                    case TableMap::TYPE_CAMELNAME:
+                        $key = 'books';
+                        break;
+                    case TableMap::TYPE_FIELDNAME:
+                        $key = 'books';
+                        break;
+                    default:
+                        $key = 'Books';
+                }
+        
+                $result[$key] = $this->collBooks->toArray(null, false, $keyType, $includeLazyLoadColumns, $alreadyDumpedObjects);
+            }
+        }
 
         return $result;
     }
@@ -925,6 +978,20 @@ abstract class Publisher implements ActiveRecordInterface
     {
         $copyObj->setId($this->getId());
         $copyObj->setName($this->getName());
+
+        if ($deepCopy) {
+            // important: temporarily setNew(false) because this affects the behavior of
+            // the getter/setter methods for fkey referrer objects.
+            $copyObj->setNew(false);
+
+            foreach ($this->getBooks() as $relObj) {
+                if ($relObj !== $this) {  // ensure that we don't try to copy a reference to ourselves
+                    $copyObj->addBook($relObj->copy($deepCopy));
+                }
+            }
+
+        } // if ($deepCopy)
+
         if ($makeNew) {
             $copyObj->setNew(true);
         }
@@ -950,6 +1017,265 @@ abstract class Publisher implements ActiveRecordInterface
         $this->copyInto($copyObj, $deepCopy);
 
         return $copyObj;
+    }
+
+
+    /**
+     * Initializes a collection based on the name of a relation.
+     * Avoids crafting an 'init[$relationName]s' method name
+     * that wouldn't work when StandardEnglishPluralizer is used.
+     *
+     * @param      string $relationName The name of the relation to initialize
+     * @return void
+     */
+    public function initRelation($relationName)
+    {
+        if ('Book' == $relationName) {
+            return $this->initBooks();
+        }
+    }
+
+    /**
+     * Clears out the collBooks collection
+     *
+     * This does not modify the database; however, it will remove any associated objects, causing
+     * them to be refetched by subsequent calls to accessor method.
+     *
+     * @return void
+     * @see        addBooks()
+     */
+    public function clearBooks()
+    {
+        $this->collBooks = null; // important to set this to NULL since that means it is uninitialized
+    }
+
+    /**
+     * Reset is the collBooks collection loaded partially.
+     */
+    public function resetPartialBooks($v = true)
+    {
+        $this->collBooksPartial = $v;
+    }
+
+    /**
+     * Initializes the collBooks collection.
+     *
+     * By default this just sets the collBooks collection to an empty array (like clearcollBooks());
+     * however, you may wish to override this method in your stub class to provide setting appropriate
+     * to your application -- for example, setting the initial array to the values stored in database.
+     *
+     * @param      boolean $overrideExisting If set to true, the method call initializes
+     *                                        the collection even if it is not empty
+     *
+     * @return void
+     */
+    public function initBooks($overrideExisting = true)
+    {
+        if (null !== $this->collBooks && !$overrideExisting) {
+            return;
+        }
+        $this->collBooks = new ObjectCollection();
+        $this->collBooks->setModel('\Book');
+    }
+
+    /**
+     * Gets an array of ChildBook objects which contain a foreign key that references this object.
+     *
+     * If the $criteria is not null, it is used to always fetch the results from the database.
+     * Otherwise the results are fetched from the database the first time, then cached.
+     * Next time the same method is called without $criteria, the cached collection is returned.
+     * If this ChildPublisher is new, it will return
+     * an empty collection or the current collection; the criteria is ignored on a new object.
+     *
+     * @param      Criteria $criteria optional Criteria object to narrow the query
+     * @param      ConnectionInterface $con optional connection object
+     * @return ObjectCollection|ChildBook[] List of ChildBook objects
+     * @throws PropelException
+     */
+    public function getBooks(Criteria $criteria = null, ConnectionInterface $con = null)
+    {
+        $partial = $this->collBooksPartial && !$this->isNew();
+        if (null === $this->collBooks || null !== $criteria  || $partial) {
+            if ($this->isNew() && null === $this->collBooks) {
+                // return empty collection
+                $this->initBooks();
+            } else {
+                $collBooks = ChildBookQuery::create(null, $criteria)
+                    ->filterByPublisher($this)
+                    ->find($con);
+
+                if (null !== $criteria) {
+                    if (false !== $this->collBooksPartial && count($collBooks)) {
+                        $this->initBooks(false);
+
+                        foreach ($collBooks as $obj) {
+                            if (false == $this->collBooks->contains($obj)) {
+                                $this->collBooks->append($obj);
+                            }
+                        }
+
+                        $this->collBooksPartial = true;
+                    }
+
+                    return $collBooks;
+                }
+
+                if ($partial && $this->collBooks) {
+                    foreach ($this->collBooks as $obj) {
+                        if ($obj->isNew()) {
+                            $collBooks[] = $obj;
+                        }
+                    }
+                }
+
+                $this->collBooks = $collBooks;
+                $this->collBooksPartial = false;
+            }
+        }
+
+        return $this->collBooks;
+    }
+
+    /**
+     * Sets a collection of ChildBook objects related by a one-to-many relationship
+     * to the current object.
+     * It will also schedule objects for deletion based on a diff between old objects (aka persisted)
+     * and new objects from the given Propel collection.
+     *
+     * @param      Collection $books A Propel collection.
+     * @param      ConnectionInterface $con Optional connection object
+     * @return $this|ChildPublisher The current object (for fluent API support)
+     */
+    public function setBooks(Collection $books, ConnectionInterface $con = null)
+    {
+        /** @var ChildBook[] $booksToDelete */
+        $booksToDelete = $this->getBooks(new Criteria(), $con)->diff($books);
+
+        
+        $this->booksScheduledForDeletion = $booksToDelete;
+
+        foreach ($booksToDelete as $bookRemoved) {
+            $bookRemoved->setPublisher(null);
+        }
+
+        $this->collBooks = null;
+        foreach ($books as $book) {
+            $this->addBook($book);
+        }
+
+        $this->collBooks = $books;
+        $this->collBooksPartial = false;
+
+        return $this;
+    }
+
+    /**
+     * Returns the number of related Book objects.
+     *
+     * @param      Criteria $criteria
+     * @param      boolean $distinct
+     * @param      ConnectionInterface $con
+     * @return int             Count of related Book objects.
+     * @throws PropelException
+     */
+    public function countBooks(Criteria $criteria = null, $distinct = false, ConnectionInterface $con = null)
+    {
+        $partial = $this->collBooksPartial && !$this->isNew();
+        if (null === $this->collBooks || null !== $criteria || $partial) {
+            if ($this->isNew() && null === $this->collBooks) {
+                return 0;
+            }
+
+            if ($partial && !$criteria) {
+                return count($this->getBooks());
+            }
+
+            $query = ChildBookQuery::create(null, $criteria);
+            if ($distinct) {
+                $query->distinct();
+            }
+
+            return $query
+                ->filterByPublisher($this)
+                ->count($con);
+        }
+
+        return count($this->collBooks);
+    }
+
+    /**
+     * Method called to associate a ChildBook object to this object
+     * through the ChildBook foreign key attribute.
+     *
+     * @param  ChildBook $l ChildBook
+     * @return $this|\Publisher The current object (for fluent API support)
+     */
+    public function addBook(ChildBook $l)
+    {
+        if ($this->collBooks === null) {
+            $this->initBooks();
+            $this->collBooksPartial = true;
+        }
+
+        if (!$this->collBooks->contains($l)) {
+            $this->doAddBook($l);
+        }
+
+        return $this;
+    }
+
+    /**
+     * @param ChildBook $book The ChildBook object to add.
+     */
+    protected function doAddBook(ChildBook $book)
+    {
+        $this->collBooks[]= $book;
+        $book->setPublisher($this);
+    }
+
+    /**
+     * @param  ChildBook $book The ChildBook object to remove.
+     * @return $this|ChildPublisher The current object (for fluent API support)
+     */
+    public function removeBook(ChildBook $book)
+    {
+        if ($this->getBooks()->contains($book)) {
+            $pos = $this->collBooks->search($book);
+            $this->collBooks->remove($pos);
+            if (null === $this->booksScheduledForDeletion) {
+                $this->booksScheduledForDeletion = clone $this->collBooks;
+                $this->booksScheduledForDeletion->clear();
+            }
+            $this->booksScheduledForDeletion[]= clone $book;
+            $book->setPublisher(null);
+        }
+
+        return $this;
+    }
+
+
+    /**
+     * If this collection has already been initialized with
+     * an identical criteria, it returns the collection.
+     * Otherwise if this Publisher is new, it will return
+     * an empty collection; or if this Publisher has previously
+     * been saved, it will retrieve related Books from storage.
+     *
+     * This method is protected by default in order to keep the public
+     * api reasonable.  You can provide public methods for those you
+     * actually need in Publisher.
+     *
+     * @param      Criteria $criteria optional Criteria object to narrow the query
+     * @param      ConnectionInterface $con optional connection object
+     * @param      string $joinBehavior optional join type to use (defaults to Criteria::LEFT_JOIN)
+     * @return ObjectCollection|ChildBook[] List of ChildBook objects
+     */
+    public function getBooksJoinAuthor(Criteria $criteria = null, ConnectionInterface $con = null, $joinBehavior = Criteria::LEFT_JOIN)
+    {
+        $query = ChildBookQuery::create(null, $criteria);
+        $query->joinWith('Author', $joinBehavior);
+
+        return $this->getBooks($query, $con);
     }
 
     /**
@@ -979,8 +1305,14 @@ abstract class Publisher implements ActiveRecordInterface
     public function clearAllReferences($deep = false)
     {
         if ($deep) {
+            if ($this->collBooks) {
+                foreach ($this->collBooks as $o) {
+                    $o->clearAllReferences($deep);
+                }
+            }
         } // if ($deep)
 
+        $this->collBooks = null;
     }
 
     /**

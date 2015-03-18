@@ -149,8 +149,8 @@ class BookTableMap extends TableMap
         $this->addPrimaryKey('id', 'Id', 'INTEGER', true, null, null);
         $this->addColumn('title', 'Title', 'VARCHAR', true, 255, null);
         $this->addColumn('isbn', 'Isbn', 'VARCHAR', true, 24, null);
-        $this->addColumn('publisher_id', 'PublisherId', 'INTEGER', true, null, null);
-        $this->addColumn('author_id', 'AuthorId', 'INTEGER', true, null, null);
+        $this->addForeignKey('publisher_id', 'PublisherId', 'INTEGER', 'publisher', 'id', true, null, null);
+        $this->addForeignKey('author_id', 'AuthorId', 'INTEGER', 'author', 'id', true, null, null);
     } // initialize()
 
     /**
@@ -158,6 +158,20 @@ class BookTableMap extends TableMap
      */
     public function buildRelations()
     {
+        $this->addRelation('Publisher', '\\Publisher', RelationMap::MANY_TO_ONE, array (
+  0 =>
+  array (
+    0 => ':publisher_id',
+    1 => ':id',
+  ),
+), null, null, null, false);
+        $this->addRelation('Author', '\\Author', RelationMap::MANY_TO_ONE, array (
+  0 =>
+  array (
+    0 => ':author_id',
+    1 => ':id',
+  ),
+), null, null, null, false);
     } // buildRelations()
 
     /**

@@ -10,6 +10,7 @@ use Map\BookTableMap;
 use Propel\Runtime\Propel;
 use Propel\Runtime\ActiveQuery\Criteria;
 use Propel\Runtime\ActiveQuery\ModelCriteria;
+use Propel\Runtime\ActiveQuery\ModelJoin;
 use Propel\Runtime\Collection\ObjectCollection;
 use Propel\Runtime\Connection\ConnectionInterface;
 use Propel\Runtime\Exception\PropelException;
@@ -34,6 +35,16 @@ use Propel\Runtime\Exception\PropelException;
  * @method     ChildBookQuery leftJoin($relation) Adds a LEFT JOIN clause to the query
  * @method     ChildBookQuery rightJoin($relation) Adds a RIGHT JOIN clause to the query
  * @method     ChildBookQuery innerJoin($relation) Adds a INNER JOIN clause to the query
+ *
+ * @method     ChildBookQuery leftJoinPublisher($relationAlias = null) Adds a LEFT JOIN clause to the query using the Publisher relation
+ * @method     ChildBookQuery rightJoinPublisher($relationAlias = null) Adds a RIGHT JOIN clause to the query using the Publisher relation
+ * @method     ChildBookQuery innerJoinPublisher($relationAlias = null) Adds a INNER JOIN clause to the query using the Publisher relation
+ *
+ * @method     ChildBookQuery leftJoinAuthor($relationAlias = null) Adds a LEFT JOIN clause to the query using the Author relation
+ * @method     ChildBookQuery rightJoinAuthor($relationAlias = null) Adds a RIGHT JOIN clause to the query using the Author relation
+ * @method     ChildBookQuery innerJoinAuthor($relationAlias = null) Adds a INNER JOIN clause to the query using the Author relation
+ *
+ * @method     \PublisherQuery|\AuthorQuery endUse() Finalizes a secondary criteria and merges it with its primary Criteria
  *
  * @method     ChildBook findOne(ConnectionInterface $con = null) Return the first ChildBook matching the query
  * @method     ChildBook findOneOrCreate(ConnectionInterface $con = null) Return the first ChildBook matching the query, or a new ChildBook object populated from the query conditions when no match is found
@@ -350,6 +361,8 @@ abstract class BookQuery extends ModelCriteria
      * $query->filterByPublisherId(array('min' => 12)); // WHERE publisher_id > 12
      * </code>
      *
+     * @see       filterByPublisher()
+     *
      * @param     mixed $publisherId The value to use as filter.
      *              Use scalar values for equality.
      *              Use array values for in_array() equivalent.
@@ -391,6 +404,8 @@ abstract class BookQuery extends ModelCriteria
      * $query->filterByAuthorId(array('min' => 12)); // WHERE author_id > 12
      * </code>
      *
+     * @see       filterByAuthor()
+     *
      * @param     mixed $authorId The value to use as filter.
      *              Use scalar values for equality.
      *              Use array values for in_array() equivalent.
@@ -420,6 +435,160 @@ abstract class BookQuery extends ModelCriteria
         }
 
         return $this->addUsingAlias(BookTableMap::COL_AUTHOR_ID, $authorId, $comparison);
+    }
+
+    /**
+     * Filter the query by a related \Publisher object
+     *
+     * @param \Publisher|ObjectCollection $publisher The related object(s) to use as filter
+     * @param string $comparison Operator to use for the column comparison, defaults to Criteria::EQUAL
+     *
+     * @throws \Propel\Runtime\Exception\PropelException
+     *
+     * @return ChildBookQuery The current query, for fluid interface
+     */
+    public function filterByPublisher($publisher, $comparison = null)
+    {
+        if ($publisher instanceof \Publisher) {
+            return $this
+                ->addUsingAlias(BookTableMap::COL_PUBLISHER_ID, $publisher->getId(), $comparison);
+        } elseif ($publisher instanceof ObjectCollection) {
+            if (null === $comparison) {
+                $comparison = Criteria::IN;
+            }
+
+            return $this
+                ->addUsingAlias(BookTableMap::COL_PUBLISHER_ID, $publisher->toKeyValue('PrimaryKey', 'Id'), $comparison);
+        } else {
+            throw new PropelException('filterByPublisher() only accepts arguments of type \Publisher or Collection');
+        }
+    }
+
+    /**
+     * Adds a JOIN clause to the query using the Publisher relation
+     *
+     * @param     string $relationAlias optional alias for the relation
+     * @param     string $joinType Accepted values are null, 'left join', 'right join', 'inner join'
+     *
+     * @return $this|ChildBookQuery The current query, for fluid interface
+     */
+    public function joinPublisher($relationAlias = null, $joinType = Criteria::INNER_JOIN)
+    {
+        $tableMap = $this->getTableMap();
+        $relationMap = $tableMap->getRelation('Publisher');
+
+        // create a ModelJoin object for this join
+        $join = new ModelJoin();
+        $join->setJoinType($joinType);
+        $join->setRelationMap($relationMap, $this->useAliasInSQL ? $this->getModelAlias() : null, $relationAlias);
+        if ($previousJoin = $this->getPreviousJoin()) {
+            $join->setPreviousJoin($previousJoin);
+        }
+
+        // add the ModelJoin to the current object
+        if ($relationAlias) {
+            $this->addAlias($relationAlias, $relationMap->getRightTable()->getName());
+            $this->addJoinObject($join, $relationAlias);
+        } else {
+            $this->addJoinObject($join, 'Publisher');
+        }
+
+        return $this;
+    }
+
+    /**
+     * Use the Publisher relation Publisher object
+     *
+     * @see useQuery()
+     *
+     * @param     string $relationAlias optional alias for the relation,
+     *                                   to be used as main alias in the secondary query
+     * @param     string $joinType Accepted values are null, 'left join', 'right join', 'inner join'
+     *
+     * @return \PublisherQuery A secondary query class using the current class as primary query
+     */
+    public function usePublisherQuery($relationAlias = null, $joinType = Criteria::INNER_JOIN)
+    {
+        return $this
+            ->joinPublisher($relationAlias, $joinType)
+            ->useQuery($relationAlias ? $relationAlias : 'Publisher', '\PublisherQuery');
+    }
+
+    /**
+     * Filter the query by a related \Author object
+     *
+     * @param \Author|ObjectCollection $author The related object(s) to use as filter
+     * @param string $comparison Operator to use for the column comparison, defaults to Criteria::EQUAL
+     *
+     * @throws \Propel\Runtime\Exception\PropelException
+     *
+     * @return ChildBookQuery The current query, for fluid interface
+     */
+    public function filterByAuthor($author, $comparison = null)
+    {
+        if ($author instanceof \Author) {
+            return $this
+                ->addUsingAlias(BookTableMap::COL_AUTHOR_ID, $author->getId(), $comparison);
+        } elseif ($author instanceof ObjectCollection) {
+            if (null === $comparison) {
+                $comparison = Criteria::IN;
+            }
+
+            return $this
+                ->addUsingAlias(BookTableMap::COL_AUTHOR_ID, $author->toKeyValue('PrimaryKey', 'Id'), $comparison);
+        } else {
+            throw new PropelException('filterByAuthor() only accepts arguments of type \Author or Collection');
+        }
+    }
+
+    /**
+     * Adds a JOIN clause to the query using the Author relation
+     *
+     * @param     string $relationAlias optional alias for the relation
+     * @param     string $joinType Accepted values are null, 'left join', 'right join', 'inner join'
+     *
+     * @return $this|ChildBookQuery The current query, for fluid interface
+     */
+    public function joinAuthor($relationAlias = null, $joinType = Criteria::INNER_JOIN)
+    {
+        $tableMap = $this->getTableMap();
+        $relationMap = $tableMap->getRelation('Author');
+
+        // create a ModelJoin object for this join
+        $join = new ModelJoin();
+        $join->setJoinType($joinType);
+        $join->setRelationMap($relationMap, $this->useAliasInSQL ? $this->getModelAlias() : null, $relationAlias);
+        if ($previousJoin = $this->getPreviousJoin()) {
+            $join->setPreviousJoin($previousJoin);
+        }
+
+        // add the ModelJoin to the current object
+        if ($relationAlias) {
+            $this->addAlias($relationAlias, $relationMap->getRightTable()->getName());
+            $this->addJoinObject($join, $relationAlias);
+        } else {
+            $this->addJoinObject($join, 'Author');
+        }
+
+        return $this;
+    }
+
+    /**
+     * Use the Author relation Author object
+     *
+     * @see useQuery()
+     *
+     * @param     string $relationAlias optional alias for the relation,
+     *                                   to be used as main alias in the secondary query
+     * @param     string $joinType Accepted values are null, 'left join', 'right join', 'inner join'
+     *
+     * @return \AuthorQuery A secondary query class using the current class as primary query
+     */
+    public function useAuthorQuery($relationAlias = null, $joinType = Criteria::INNER_JOIN)
+    {
+        return $this
+            ->joinAuthor($relationAlias, $joinType)
+            ->useQuery($relationAlias ? $relationAlias : 'Author', '\AuthorQuery');
     }
 
     /**

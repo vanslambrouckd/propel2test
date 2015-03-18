@@ -158,6 +158,13 @@ class AuthorTableMap extends TableMap
      */
     public function buildRelations()
     {
+        $this->addRelation('Book', '\\Book', RelationMap::ONE_TO_MANY, array (
+  0 =>
+  array (
+    0 => ':author_id',
+    1 => ':id',
+  ),
+), null, null, 'Books', false);
     } // buildRelations()
 
     /**
