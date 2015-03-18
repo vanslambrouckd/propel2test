@@ -1,0 +1,10 @@
+{
+	"require": {
+		"propel/propel": "~2.0@dev",
+		"filp/whoops": "~1.1",
+		"monolog/monolog": "~1.13"
+	},
+	"autoload": {
+		"classmap": ["conf/generated-classes/"]
+	}
+}
